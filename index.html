@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ITO 线框表生成器</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+    :root {
+      --bg-primary: #09090b;
+      --bg-secondary: #18181b;
+      --bg-card: #27272a;
+      --bg-card-hover: #2d2d31;
+      --border: rgba(255,255,255,0.08);
+      --border-active: rgba(255,255,255,0.2);
+      --text-primary: #fafafa;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --accent-subtle: rgba(99,102,241,0.15);
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+    }
+    body { background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    .header { border-bottom: 1px solid var(--border); backdrop-filter: blur(12px); background: rgba(9,9,11,0.85); }
+    .tab-btn { padding: 6px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--text-muted); transition: all 0.2s; cursor: pointer; border: 1px solid transparent; background: transparent; }
+    .tab-btn:hover { color: var(--text-secondary); }
+    .tab-btn.active { color: var(--text-primary); background: var(--bg-card); border-color: var(--border); }
+    .form-select, .form-input { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; color: var(--text-primary); font-size: 13px; outline: none; transition: border-color 0.2s; width: 100%; }
+    .form-select:focus, .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
+    .form-select option { background: var(--bg-card); }
+    .toggle-group { display: flex; gap: 8px; }
+    .toggle-btn { flex: 1; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text-muted); transition: all 0.2s; }
+    .toggle-btn:hover { border-color: var(--border-active); }
+    .toggle-btn.active-yes { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.3); color: var(--green); }
+    .toggle-btn.active-no { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.3); color: var(--amber); }
+    .filter-section { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .filter-label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+    .filter-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { padding: 4px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text-muted); transition: all 0.2s; user-select: none; }
+    .chip:hover { border-color: var(--border-active); color: var(--text-secondary); }
+    .chip.selected { background: var(--accent-subtle); border-color: var(--accent); color: var(--accent-hover); }
+    .btn-generate { padding: 10px 28px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; background: var(--accent); color: white; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
+    .btn-generate:hover { background: var(--accent-hover); transform: translateY(-1px); }
+    .btn-generate:active { transform: translateY(0); }
+    .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .card:hover { border-color: var(--border-active); box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+    .card-header { padding: 16px 20px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; transition: background 0.2s; }
+    .card-header:hover { background: rgba(255,255,255,0.02); }
+    .card-body { padding: 0 20px 20px; display: none; animation: slideDown 0.25s ease; }
+    .card.expanded .card-body { display: block; }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.02em; }
+    .badge-platform-tmall { background: rgba(255,102,0,0.15); color: #ff6600; border: 1px solid rgba(255,102,0,0.2); }
+    .badge-platform-jd { background: rgba(227,0,19,0.15); color: #e3001b; border: 1px solid rgba(227,0,19,0.2); }
+    .badge-tier-1 { background: rgba(99,102,241,0.15); color: #818cf8; border: 1px solid rgba(99,102,241,0.2); }
+    .badge-tier-2 { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
+    .badge-tier-3 { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+    .module-row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .module-row:last-child { border-bottom: none; }
+    .module-name { min-width: 70px; font-size: 12px; font-weight: 600; color: var(--text-muted); padding-top: 2px; }
+    .module-values { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+    .module-value { padding: 3px 10px; border-radius: 4px; font-size: 12px; background: rgba(255,255,255,0.06); color: var(--text-primary); border: 1px solid rgba(255,255,255,0.08); }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+    .status-online { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+    .status-offline { background: var(--rose); }
+    .status-loading { background: var(--amber); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .btn-pdf { position: fixed; bottom: 32px; right: 32px; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary); display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.4); transition: all 0.2s; z-index: 100; }
+    .btn-pdf:hover { background: var(--bg-card-hover); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+    .btn-pdf.hidden { display: none; }
+    .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty-state { text-align: center; padding: 80px 20px; color: var(--text-muted); }
+    .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; }
+    .skeleton { background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-card-hover) 50%, var(--bg-card) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+    .logo-text { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; background: linear-gradient(135deg, #fafafa, #a1a1aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .chevron { transition: transform 0.3s; }
+  </style>
+</head>
+<body>
+
+<header class="header sticky top-0 z-50">
+  <div class="max-w-6xl mx-auto px-6 py-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--accent);">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" fill="white" opacity="0.9"/><rect x="9" y="2" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="2" y="9" width="5" height="5" rx="1" fill="white" opacity="0.6"/><rect x="9" y="9" width="5" height="5" rx="1" fill="white" opacity="0.3"/></svg>
+        </div>
+        <div>
+          <div class="logo-text">ITO Wireframe</div>
+          <div style="font-size:11px;color:var(--text-muted);">线框表生成器</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2" style="background:var(--bg-secondary);padding:4px;border-radius:10px;border:1px solid var(--border);">
+        <button class="tab-btn active" data-source="ima" onclick="switchSource('ima')"><span class="status-dot status-online" style="margin-right:6px;"></span>IMA 知识库</button>
+        <button class="tab-btn" data-source="feishu" onclick="switchSource('feishu')"><span class="status-dot status-offline" style="margin-right:6px;"></span>飞书</button>
+      </div>
+      <div class="flex items-center gap-2" style="font-size:12px;color:var(--text-muted);">
+        <span class="status-dot status-loading" id="statusDot"></span>
+        <span id="statusText">连接中...</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-6 py-8">
+  <section class="mb-10">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 p-6 rounded-xl" style="background:var(--bg-secondary);border:1px solid var(--border);">
+      <div>
+        <label class="filter-label block mb-2">平台</label>
+        <select class="form-select" id="platformSelect" onchange="onInputChange()">
+          <option value="all">全部平台</option>
+          <option value="天猫">天猫</option>
+          <option value="京东">京东</option>
+        </select>
+      </div>
+      <div>
+        <label class="filter-label block mb-2">活动时间</label>
+        <input type="text" class="form-input" id="eventSelect" placeholder="如：4.15-4.20、五一预热期" oninput="onInputChange()" />
+      </div>
+      <div>
+        <label class="filter-label block mb-2">活动类型</label>
+        <div class="combobox-wrapper" style="position:relative;">
+          <input type="text" class="form-input" id="eventTypeSelect" list="eventTypeList" placeholder="选择或输入活动类型" oninput="onInputChange()" />
+          <datalist id="eventTypeList">
+            <option value="51出游季">
+            <option value="618预热">
+            <option value="618开门红">
+            <option value="618高潮">
+            <option value="双11">
+            <option value="双12">
+            <option value="日销期">
+          </datalist>
+        </div>
+      </div>
+      <div>
+        <label class="filter-label block mb-2">活动 Logo</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active-yes" id="logoYes" onclick="setLogo(true)">有 Logo</button>
+          <button class="toggle-btn" id="logoNo" onclick="setLogo(false)">无 Logo</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="mb-8">
+    <div class="filter-section">
+      <span class="filter-label">点位</span>
+      <div class="filter-chips" id="positionChips">
+        <button class="chip selected" data-val="all">全部</button>
+        <button class="chip" data-val="主图">主图</button>
+        <button class="chip" data-val="KV">KV</button>
+        <button class="chip" data-val="品专">品专</button>
+        <button class="chip" data-val="首页活动">首页活动</button>
+        <button class="chip" data-val="直播间">直播间</button>
+        <button class="chip" data-val="二级页">二级页</button>
+        <button class="chip" data-val="详情关联">详情关联</button>
+        <button class="chip" data-val="精选店铺">精选店铺</button>
+        <button class="chip" data-val="宝贝分类">宝贝分类</button>
+        <button class="chip" data-val="活动页通天塔">活动页通天塔</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="mb-8">
+    <div class="filter-section">
+      <span class="filter-label">模块</span>
+      <div class="filter-chips" id="moduleChips">
+        <button class="chip selected" data-val="all">全部</button>
+        <button class="chip selected" data-val="logo">logo</button>
+        <button class="chip selected" data-val="标题">标题</button>
+        <button class="chip selected" data-val="利益点">利益点</button>
+        <button class="chip selected" data-val="按钮">按钮</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="flex items-center justify-between mb-6">
+    <div style="font-size:13px;color:var(--text-muted);">共 <span id="resultCount" style="color:var(--text-primary);font-weight:600;">0</span> 个点位</div>
+    <button class="btn-generate" id="generateBtn" onclick="generateWireframe()">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1L12 7H9v6H5V7H2L7 1z"/></svg> 生成线框表
+    </button>
+  </section>
+
+  <div id="cardGrid" class="card-grid"></div>
+  <div id="emptyState" class="empty-state">
+    <div class="empty-icon">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="8" y="8" width="20" height="20" rx="3" opacity="0.6"/>
+        <rect x="36" y="8" width="20" height="20" rx="3" opacity="0.4"/>
+        <rect x="8" y="36" width="20" height="20" rx="3" opacity="0.4"/>
+        <rect x="36" y="36" width="20" height="20" rx="3" opacity="0.2"/>
+      </svg>
+    </div>
+    <div style="font-size:16px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">选择条件并生成线框表</div>
+    <div style="font-size:13px;">点击「生成线框表」获取对应活动档位的点位素材标准</div>
+  </div>
+</main>
+
+<button class="btn-pdf hidden" id="pdfBtn" onclick="exportPDF()">
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M9 1H3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7L9 1zm0 0v4h4"/></svg> 导出 PDF
+</button>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+<script>
+let currentSource = 'ima';
+let hasLogo = true;
+let materialsData = null;
+let allCards = [];
+
+window.addEventListener('DOMContentLoaded', () => { testConnection(); initChipHandlers(); });
+
+function switchSource(source) {
+  currentSource = source;
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.source === source));
+}
+
+function setLogo(val) {
+  hasLogo = val;
+  document.getElementById('logoYes').classList.toggle('active-yes', val === true);
+  document.getElementById('logoNo').classList.toggle('active-no', val === false);
+}
+
+function onEventChange() {
+  const event = document.getElementById('eventTypeSelect').value;
+  const promoEvents = ['51出游季','618预热','618开门红','618高潮','双11','双12'];
+  setLogo(promoEvents.includes(event));
+}
+
+function onInputChange() {}
+
+async function testConnection() {
+  try {
+    const resp = await fetch('/api/test-ima');
+    const data = await resp.json();
+    const dot = document.getElementById('statusDot');
+    const text = document.getElementById('statusText');
+    if (data.connected) {
+      dot.className = 'status-dot status-online';
+      text.textContent = 'IMA 已连接';
+    } else {
+      dot.className = 'status-dot status-offline';
+      text.textContent = data.reason || 'IMA 未连接';
+    }
+  } catch {
+    const dot = document.getElementById('statusDot');
+    const text = document.getElementById('statusText');
+    dot.className = 'status-dot status-offline';
+    text.textContent = '服务未启动';
+  }
+}
+
+function initChipHandlers() {
+  document.querySelectorAll('.filter-chips').forEach(group => {
+    group.addEventListener('click', e => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      const siblings = [...group.querySelectorAll('.chip')];
+      if (chip.dataset.val === 'all') {
+        siblings.forEach(c => c.classList.toggle('selected', c.dataset.val === 'all'));
+      } else {
+        siblings.forEach(c => {
+          if (c.dataset.val === 'all') c.classList.remove('selected');
+          else c.classList.toggle('selected', c === chip);
+        });
+        if ([...group.querySelectorAll('.chip.selected')].length === 0) {
+          group.querySelector('[data-val="all"]').classList.add('selected');
+        }
+      }
+    });
+  });
+}
+
+function getSelectedChips(groupId) {
+  const chips = document.querySelectorAll('#' + groupId + ' .chip.selected');
+  const vals = [...chips].map(c => c.dataset.val);
+  if (vals.includes('all')) return ['all'];
+  return vals;
+}
+
+async function generateWireframe() {
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> 生成中...';
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('pdfBtn').classList.add('hidden');
+  try {
+    const resp = await fetch('/api/materials');
+    const result = await resp.json();
+    materialsData = result.data || result;
+    const platform = document.getElementById('platformSelect').value;
+    const eventTime = document.getElementById('eventSelect').value;
+    const eventType = document.getElementById('eventTypeSelect').value;
+    const selectedPositions = getSelectedChips('positionChips');
+    const selectedModules = getSelectedChips('moduleChips');
+    const cards = buildCards(materialsData, { platform, eventTime, eventType, hasLogo, positions: selectedPositions, modules: selectedModules });
+    allCards = cards;
+    renderCards(cards);
+    document.getElementById('pdfBtn').classList.remove('hidden');
+  } catch (err) {
+    console.error(err);
+    alert('生成失败: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 1L12 7H9v6H5V7H2L7 1z"/></svg> 生成线框表';
+  }
+}
+
+function buildCards(data, filters) {
+  const { platform, eventType, hasLogo, positions, modules: selectedModules } = filters;
+  let tierKey = '三档_日销期';
+  if (eventType && eventType !== '日销期') {
+    tierKey = hasLogo ? '二档_有券活动期' : '一档_无券活动期';
+  }
+  const cards = [];
+  for (const [posName, posData] of Object.entries(data.positions)) {
+    if (positions[0] !== 'all' && !positions.includes(posName)) continue;
+    for (const [platName, platData] of Object.entries(posData.platforms)) {
+      if (platform !== 'all' && platform !== platName) continue;
+      const tierData = platData.tiers?.[tierKey];
+      if (!tierData) continue;
+      const modules = [];
+      for (const [modName, modValues] of Object.entries(tierData)) {
+        // 根据选中的模块过滤
+        if (selectedModules[0] !== 'all' && !selectedModules.includes(modName)) continue;
+        // 保留所有模块，空数组显示为"待确认"
+        if (Array.isArray(modValues)) {
+          if (modValues.length > 0) {
+            modules.push({ name: modName, values: modValues });
+          } else {
+            modules.push({ name: modName, values: ['待确认'], isEmpty: true });
+          }
+        }
+      }
+      // 只要有一点位数据就显示卡片
+      if (modules.length === 0) continue;
+      cards.push({
+        id: posName + '_' + platName,
+        position: posName, platform: platName,
+        size: platData.size || '', maxSize: platData.maxSize || '',
+        modules
+      });
+    }
+  }
+  return cards;
+}
+
+function renderCards(cards) {
+  const grid = document.getElementById('cardGrid');
+  const empty = document.getElementById('emptyState');
+  document.getElementById('resultCount').textContent = cards.length;
+  if (cards.length === 0) {
+    grid.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  grid.innerHTML = cards.map((card, i) => {
+    const platClass = card.platform === '天猫' ? 'tmall' : 'jd';
+    return '<div class="card" id="card-' + i + '"><div class="card-header" onclick="toggleCard(' + i + ')"><div class="flex items-center gap-3 flex-wrap"><span style="font-size:14px;font-weight:600;">' + card.position + '</span><span class="badge badge-platform-' + platClass + '">' + card.platform + '</span>' + (card.size ? '<span style="font-size:11px;color:var(--text-muted);margin-left:4px;">' + card.size + '</span>' : '') + '</div><div class="flex items-center gap-2"><span style="font-size:11px;color:var(--text-muted);">' + card.modules.length + ' 个模块</span><svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="color:var(--text-muted);"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg></div></div><div class="card-body">' + card.modules.map(mod => '<div class="module-row"><div class="module-name">' + mod.name + '</div><div class="module-values">' + mod.values.map(v => '<span class="module-value">' + v + '</span>').join('') + '</div></div>').join('') + '</div></div>';
+  }).join('');
+  setTimeout(() => document.getElementById('card-0')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+}
+
+function toggleCard(index) {
+  const card = document.getElementById('card-' + index);
+  const expanded = card.dataset.expanded === 'true';
+  card.dataset.expanded = (!expanded).toString();
+  card.classList.toggle('expanded', !expanded);
+  const chevron = card.querySelector('.chevron');
+  if (chevron) chevron.style.transform = expanded ? '' : 'rotate(180deg)';
+}
+
+// 等待 DOM 更新的辅助函数
+function waitForLayout() {
+  return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
+async function exportPDF() {
+  const btn = document.getElementById('pdfBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> 导出中...';
+  
+  let pdf = null;
+  
+  try {
+    const { jsPDF } = window.jspdf;
+    
+    const eventType = document.getElementById('eventTypeSelect').value || '日销期';
+    const eventTime = document.getElementById('eventSelect').value || '';
+    const platform = document.getElementById('platformSelect').value || '全部';
+    const hasLogo = document.getElementById('logoYes').classList.contains('active-yes');
+    
+    // 获取卡片
+    const cardGrid = document.getElementById('cardGrid');
+    const cards = cardGrid.querySelectorAll('.card');
+    
+    if (cards.length === 0) {
+      alert('请先生成线框表再导出');
+      return;
+    }
+    
+    // 创建 PDF
+    pdf = new jsPDF('p', 'mm', 'a4');
+    const pageW = pdf.internal.pageSize.getWidth();  // 210mm
+    const pageH = pdf.internal.pageSize.getHeight(); // 297mm
+    
+    // PDF 内容区尺寸（mm）
+    const PDF_PADDING = 12;     // mm 边距
+    const PDF_CONTENT_W = 186;  // 186mm 内容宽度
+    const PDF_CONTENT_H = 273;  // 273mm 内容高度
+    
+    // CSS 布局尺寸
+    const CSS_WIDTH = 620;      // CSS 像素，总宽度
+    const CSS_PADDING = 40;      // CSS 像素，内边距
+    const CSS_CONTENT_W = CSS_WIDTH - CSS_PADDING * 2;  // 540px 内容宽度
+    
+    // 每页4个卡片：标题区+卡片区
+    const CSS_HEADER_H = 80;     // CSS 像素，标题区高度
+    const CSS_CARD_AREA_H = 480;  // CSS 像素，卡片区总高度（4个卡片）
+    const CSS_CARD_H = CSS_CARD_AREA_H / 4; // 每个卡片高度约120px
+    const CSS_CARD_MARGIN = 4;   // 卡片间距
+    
+    // 清晰度缩放
+    const scale = 2;
+    
+    // 构建卡片数据
+    const cardData = [];
+    for (const card of cards) {
+      const position = card.querySelector('.card-header span')?.textContent || '';
+      const platformBadge = card.querySelector('.badge-platform-tmall, .badge-platform-jd');
+      const platformName = platformBadge?.textContent || '';
+      const sizeText = card.querySelector('.card-header span:last-child')?.textContent || '';
+      const moduleRows = [];
+      card.querySelectorAll('.module-row').forEach(row => {
+        const modName = row.querySelector('.module-name')?.textContent || '';
+        const modValues = [];
+        row.querySelectorAll('.module-value').forEach(v => modValues.push(v.textContent));
+        moduleRows.push({ name: modName, values: modValues });
+      });
+      cardData.push({ position, platform: platformName, size: sizeText, modules: moduleRows });
+    }
+    
+    // 按每页4个分组
+    const CARDS_PER_PAGE = 4;
+    const pages = [];
+    for (let i = 0; i < cardData.length; i += CARDS_PER_PAGE) {
+      pages.push(cardData.slice(i, i + CARDS_PER_PAGE));
+    }
+    
+    // 逐页生成
+    for (let pageIdx = 0; pageIdx < pages.length; pageIdx++) {
+      const pageCards = pages[pageIdx];
+      
+      // 创建页面容器
+      const pageContainer = document.createElement('div');
+      pageContainer.style.cssText = `position:fixed;top:0;left:0;width:${CSS_WIDTH}px;background:#09090b;color:#fafafa;font-family:PingFang SC,Microsoft YaHei,sans-serif;visibility:visible;z-index:-1;`;
+      document.body.appendChild(pageContainer);
+      
+      // 渲染标题区
+      const headerArea = document.createElement('div');
+      headerArea.style.cssText = `position:absolute;top:0;left:0;right:0;height:${CSS_HEADER_H}px;padding:${CSS_PADDING}px;box-sizing:border-box;`;
+      pageContainer.appendChild(headerArea);
+      
+      const titleEl = document.createElement('div');
+      titleEl.style.cssText = 'font-size:20px;font-weight:700;color:#fafafa;';
+      titleEl.textContent = 'ITO 线框表';
+      headerArea.appendChild(titleEl);
+      
+      const metaEl = document.createElement('div');
+      metaEl.style.cssText = 'font-size:11px;color:#a1a1aa;margin-top:8px;';
+      metaEl.textContent = `平台: ${platform} | 活动时间: ${eventTime || '未指定'} | 活动类型: ${eventType} | Logo: ${hasLogo ? '有' : '无'} | ${new Date().toLocaleString('zh-CN')}`;
+      headerArea.appendChild(metaEl);
+      
+      const divider = document.createElement('div');
+      divider.style.cssText = `position:absolute;bottom:${CSS_PADDING}px;left:${CSS_PADDING}px;right:${CSS_PADDING}px;height:1px;background:rgba(255,255,255,0.1);`;
+      headerArea.appendChild(divider);
+      
+      // 渲染卡片区
+      const cardArea = document.createElement('div');
+      cardArea.style.cssText = `position:absolute;top:${CSS_HEADER_H}px;left:${CSS_PADDING}px;right:${CSS_PADDING}px;height:${CSS_CARD_AREA_H}px;`;
+      pageContainer.appendChild(cardArea);
+      
+      // 渲染每个卡片
+      for (let i = 0; i < CARDS_PER_PAGE; i++) {
+        const cardY = i * (CSS_CARD_H + CSS_CARD_MARGIN);
+        const cardEl = document.createElement('div');
+        cardEl.style.cssText = `position:absolute;top:${cardY}px;left:0;right:0;height:${CSS_CARD_H}px;background:#27272a;border:1px solid rgba(255,255,255,0.08);border-radius:8px;overflow:hidden;`;
+        
+        if (pageCards[i]) {
+          const data = pageCards[i];
+          // 卡片头部
+          const cardHeader = document.createElement('div');
+          cardHeader.style.cssText = 'padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;gap:10px;';
+          
+          const posName = document.createElement('span');
+          posName.style.cssText = 'font-size:13px;font-weight:600;color:#fafafa;';
+          posName.textContent = data.position;
+          cardHeader.appendChild(posName);
+          
+          if (data.platform) {
+            const platBadge = document.createElement('span');
+            const platColor = data.platform === '天猫' ? '#ff6600' : '#e3001b';
+            platBadge.style.cssText = `padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;background:rgba(255,102,0,0.15);color:${platColor};`;
+            platBadge.textContent = data.platform;
+            cardHeader.appendChild(platBadge);
+          }
+          
+          if (data.size && data.size.includes('*')) {
+            const sizeBadge = document.createElement('span');
+            sizeBadge.style.cssText = 'font-size:10px;color:#71717a;margin-left:4px;';
+            sizeBadge.textContent = data.size;
+            cardHeader.appendChild(sizeBadge);
+          }
+          
+          cardEl.appendChild(cardHeader);
+          
+          // 模块内容
+          const cardBody = document.createElement('div');
+          cardBody.style.cssText = 'padding:8px 14px;';
+          
+          data.modules.forEach(mod => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:flex-start;gap:10px;padding:5px 0;';
+            
+            const modName = document.createElement('span');
+            modName.style.cssText = 'min-width:50px;font-size:11px;font-weight:600;color:#a1a1aa;padding-top:2px;';
+            modName.textContent = mod.name;
+            row.appendChild(modName);
+            
+            const modValues = document.createElement('div');
+            modValues.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;flex:1;';
+            mod.values.forEach(v => {
+              const val = document.createElement('span');
+              val.style.cssText = 'padding:2px 8px;border-radius:3px;font-size:11px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#fafafa;';
+              val.textContent = v;
+              modValues.appendChild(val);
+            });
+            row.appendChild(modValues);
+            cardBody.appendChild(row);
+          });
+          
+          cardEl.appendChild(cardBody);
+        }
+        
+        cardArea.appendChild(cardEl);
+      }
+      
+      // 等待布局完成
+      await waitForLayout();
+      
+      // 渲染页面
+      const totalH = CSS_HEADER_H + CSS_CARD_AREA_H + CSS_PADDING;
+      const pageCanvas = await html2canvas(pageContainer, {
+        scale: scale,
+        backgroundColor: '#09090b',
+        useCORS: false,
+        logging: false,
+        width: CSS_WIDTH,
+        height: totalH
+      });
+      
+      // 添加到 PDF
+      const imgData = pageCanvas.toDataURL('image/jpeg', 0.9);
+      const imgW = PDF_CONTENT_W;
+      const imgH = pageCanvas.height * imgW / pageCanvas.width;
+      
+      if (pageIdx > 0) pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', PDF_PADDING, PDF_PADDING, imgW, imgH);
+      
+      document.body.removeChild(pageContainer);
+    }
+    
+    const filename = `ITO线框表_${eventType}_${eventTime || new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}`;
+    pdf.save(filename + '.pdf');
+    
+  } catch (err) { 
+    console.error('PDF导出错误:', err); 
+    alert('PDF导出失败: ' + err.message); 
+  }
+  finally { 
+    btn.disabled = false; 
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M9 1H3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V7L9 1zm0 0v4h4"/></svg> 导出 PDF'; 
+  }
+}
+</script>
+
+</body>
+</html>
