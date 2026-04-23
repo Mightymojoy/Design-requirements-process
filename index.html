@@ -247,24 +247,11 @@ function onEventChange() {
 function onInputChange() {}
 
 async function testConnection() {
-  try {
-    const resp = await fetch('/api/test-ima');
-    const data = await resp.json();
-    const dot = document.getElementById('statusDot');
-    const text = document.getElementById('statusText');
-    if (data.connected) {
-      dot.className = 'status-dot status-online';
-      text.textContent = 'IMA 已连接';
-    } else {
-      dot.className = 'status-dot status-offline';
-      text.textContent = data.reason || 'IMA 未连接';
-    }
-  } catch {
-    const dot = document.getElementById('statusDot');
-    const text = document.getElementById('statusText');
-    dot.className = 'status-dot status-offline';
-    text.textContent = '服务未启动';
-  }
+  // 静态部署时跳过 IMA 连接检查
+  const dot = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  dot.className = 'status-dot status-online';
+  text.textContent = '本地模式';
 }
 
 function initChipHandlers() {
