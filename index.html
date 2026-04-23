@@ -110,12 +110,19 @@
         </div>
       </div>
       <div class="flex items-center gap-2" style="background:var(--bg-secondary);padding:4px;border-radius:10px;border:1px solid var(--border);">
-        <button class="tab-btn active" data-source="ima" onclick="switchSource('ima')"><span class="status-dot status-online" style="margin-right:6px;"></span>IMA 知识库</button>
-        <button class="tab-btn" data-source="feishu" onclick="switchSource('feishu')"><span class="status-dot status-offline" style="margin-right:6px;"></span>飞书</button>
+        <button class="tab-btn active" data-source="ima" onclick="switchSource('ima')">本地模式</button>
+        <button class="tab-btn" data-source="ima-cloud" onclick="switchSource('ima-cloud')">IMA 云端</button>
       </div>
-      <div class="flex items-center gap-2" style="font-size:12px;color:var(--text-muted);">
-        <span class="status-dot status-loading" id="statusDot"></span>
-        <span id="statusText">连接中...</span>
+      <div class="flex items-center gap-3">
+        <div id="imaConfigPanel" style="display:none;" class="flex items-center gap-2">
+          <input type="password" id="imaApiKey" placeholder="输入 IMA API Key" style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text-primary);font-size:12px;width:200px;" />
+          <button onclick="saveImaKey()" style="padding:6px 12px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">保存</button>
+          <button onclick="deleteImaKey()" style="padding:6px 12px;background:rgba(245,158,11,0.2);color:var(--amber);border:1px solid rgba(245,158,11,0.3);border-radius:6px;font-size:12px;cursor:pointer;">删除 Key</button>
+        </div>
+        <div id="imaStatus" class="flex items-center gap-2" style="font-size:12px;color:var(--text-muted);">
+          <span class="status-dot status-online" id="statusDot"></span>
+          <span id="statusText">本地模式</span>
+        </div>
       </div>
     </div>
   </div>
@@ -250,11 +257,52 @@ function onEventChange() {
 function onInputChange() {}
 
 async function testConnection() {
-  // 静态部署时跳过 IMA 连接检查
   const dot = document.getElementById('statusDot');
   const text = document.getElementById('statusText');
-  dot.className = 'status-dot status-online';
-  text.textContent = '本地模式';
+  const configPanel = document.getElementById('imaConfigPanel');
+  const currentSource = document.querySelector('.tab-btn.active')?.dataset.source || 'ima';
+
+  if (currentSource === 'ima-cloud') {
+    configPanel.style.display = 'flex';
+    const savedKey = localStorage.getItem('ima_api_key');
+    if (savedKey) {
+      dot.className = 'status-dot status-online';
+      text.textContent = '已配置';
+      document.getElementById('imaApiKey').value = '********' + savedKey.slice(-4);
+    } else {
+      dot.className = 'status-dot status-offline';
+      text.textContent = '未配置';
+    }
+  } else {
+    configPanel.style.display = 'none';
+    dot.className = 'status-dot status-online';
+    text.textContent = '本地模式';
+  }
+}
+
+function switchSource(source) {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.source === source);
+  });
+  testConnection();
+}
+
+function saveImaKey() {
+  const key = document.getElementById('imaApiKey').value.trim();
+  if (!key) {
+    alert('请输入 API Key');
+    return;
+  }
+  localStorage.setItem('ima_api_key', key);
+  alert('API Key 已保存！');
+  testConnection();
+}
+
+function deleteImaKey() {
+  if (!confirm('确定要删除已保存的 API Key 吗？')) return;
+  localStorage.removeItem('ima_api_key');
+  document.getElementById('imaApiKey').value = '';
+  testConnection();
 }
 
 function initChipHandlers() {
