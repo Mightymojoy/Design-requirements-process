@@ -298,8 +298,8 @@ async function generateWireframe() {
   document.getElementById('emptyState').classList.add('hidden');
   document.getElementById('pdfBtn').classList.add('hidden');
   try {
-    // 直接加载本地 JSON 文件（静态部署兼容）
-    const resp = await fetch('./data/materials.json');
+    // 使用 raw.githubusercontent.com（GitHub Pages 部署可能有时延）
+    const resp = await fetch('https://raw.githubusercontent.com/Mightymojoy/Design-requirements-process/main/data/materials.json');
     if (!resp.ok) throw new Error(`加载素材数据失败: ${resp.status}`);
     const result = await resp.json();
     materialsData = result.data || result;
